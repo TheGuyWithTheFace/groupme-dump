@@ -5,17 +5,21 @@ import json
 GROUPME_API = "https://api.groupme.com/v3"
 
 def main():
-    user_token = input()
+    user_token = input("Please enter your GroupMe API Token: ")
+
+    # Select group
+    group = select_group(user_token)
+    group_id = group["group_id"]
 
     # Get first 100 messages, print them, save id of the oldest message
-    messages = get_starting_messages(user_token)
+    messages = get_starting_messages(user_token, group_id)
     for message in messages:
         print_message(message)
     before_id = messages[len(messages) - 1]["id"]
 
     # Loop through history, printing messages.
     while(True):
-        messages = get_messages_before(user_token, before_id)
+        messages = get_messages_before(user_token, group_id, before_id)
         for message in messages:
             print_message(message)
         before_id = messages[len(messages) - 1]["id"]
@@ -32,18 +36,35 @@ def print_message(message):
 
 
 # Returns the 100 messages in a chat that come before the given id.
-def get_messages_before(user_token, before_id):
-    response = make_request(GROUPME_API, "/groups/16492586/messages",
+def get_messages_before(user_token, group_id, before_id):
+    response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
             user_token, {'limit':'100', 'before_id':before_id})
 
     return response["messages"]
 
+
 # Returns the first 100 messages in a chat
-def get_starting_messages(user_token):
-    response = make_request(GROUPME_API, "/groups/16492586/messages",
+def get_starting_messages(user_token, group_id):
+    response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
             user_token, {'limit':'100'})
 
     return response["messages"]
+
+
+# lists user's groups, asks for user to select a specific group, returns it.
+def select_group(user_token):
+    # Get list of groups
+    groups = make_request(GROUPME_API, "/groups", user_token, {})
+    names = [group["name"] for group in groups]
+
+    # print groups for user to select
+    for i in range(len(names)):
+        print("[" + str(i) + "] " + names[i])
+    selected_index = int(
+		input("Please enter the number of your selected group: "))
+
+    # return selected group
+    return groups[selected_index]
 
 
 # fetches resource at URL, converts JSON response to useful Object
