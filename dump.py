@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import urllib.request
+import datetime
 import json
 
 GROUPME_API = "https://api.groupme.com/v3"
@@ -27,12 +28,13 @@ def main():
 
 # Takes a json message object, prints it.
 def print_message(message):
+    date = str(datetime.datetime.fromtimestamp(int(message["created_at"])))
     if(message["text"] is None):
         # probably was an attachment, ie picture
-        print("\n" + message["name"] + " posted a picture:\n"
+        print("\n" + date + " - " + message["name"] + " posted a picture:\n"
                 + message["attachments"][0]["url"])
     else:
-        print("\n" + message["name"] + ":\n" + message["text"])
+        print("\n" + date + " - " + message["name"] + ":\n" + message["text"])
 
 
 # Returns the 100 messages in a chat that come before the given id.
