@@ -2,15 +2,33 @@
 import urllib.request
 import datetime
 import json
+import os
 
 GROUPME_API = "https://api.groupme.com/v3"
+output_file_name = ""
+output_file = 0 # just declaring here so it can be used later
 
 def main():
+    global output_file
+    global output_file_name
+
     user_token = input("Please enter your GroupMe API Token: ")
 
     # Select group
     group = select_group(user_token)
     group_id = group["group_id"]
+
+    output_file_name = input("Please enter an unused name for the output file: ")
+
+    # trim name if necessary
+    if(output_file_name.endswith(".txt")):
+        output_file_name = output_file_name[:-4]
+
+    # setup output folder and file
+    os.makedirs(output_file_name + "-pictures") # where we'll put attachments
+    output_file = open(output_file_name + ".txt", "w")
+
+    print("dumping...")
 
     # Get first 100 messages, print them, save id of the oldest message
     messages = get_starting_messages(user_token, group_id)
@@ -31,10 +49,21 @@ def print_message(message):
     date = str(datetime.datetime.fromtimestamp(int(message["created_at"])))
     if(message["text"] is None):
         # probably was an attachment, ie picture
-        print("\n" + date + " - " + message["name"] + " posted a picture:\n"
+        output_file.write("\n" + date + " - " + message["name"] + " posted a picture:\n"
                 + message["attachments"][0]["url"])
     else:
-        print("\n" + date + " - " + message["name"] + ":\n" + message["text"])
+        output_file.write("\n" + date + " - " + message["name"] + ":\n" + message["text"])
+
+    # Save any attached pictures
+    if(message["attachments"] is not None):
+        for attachment in message["attachments"]:
+            if(attachment["type"] == "image"):
+                url = attachment["url"]
+                response = urllib.request.urlopen(url)
+                # we shouldn't just *assume* it's a .png, but oh well
+                f = open(output_file_name + "-pictures/" + date + ".png", "wb")
+                f.write(response.read())
+                f.close()
 
 
 # Returns the 100 messages in a chat that come before the given id.
