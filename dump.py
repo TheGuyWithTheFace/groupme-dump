@@ -3,10 +3,13 @@ import urllib.request
 import datetime
 import json
 import os
+import time
 
 GROUPME_API = "https://api.groupme.com/v3"
 output_file_name = ""
 output_file = 0 # just declaring here so it can be used later
+image_count = 0
+message_count = 0
 
 def main():
     global output_file
@@ -29,6 +32,7 @@ def main():
     output_file = open(output_file_name + ".txt", "w")
 
     print("dumping...")
+    start_time = time.time()
 
     # Get first 100 messages, print them, save id of the oldest message
     messages = get_starting_messages(user_token, group_id)
@@ -36,16 +40,25 @@ def main():
         print_message(message)
     before_id = messages[len(messages) - 1]["id"]
 
-    # Loop through history, printing messages.
-    while(True):
-        messages = get_messages_before(user_token, group_id, before_id)
-        for message in messages:
-            print_message(message)
-        before_id = messages[len(messages) - 1]["id"]
+    try:
+        # Loop through history, printing messages.
+        while(True):
+            messages = get_messages_before(user_token, group_id, before_id)
+            for message in messages:
+                print_message(message)
+            before_id = messages[len(messages) - 1]["id"]
+    except urllib.error.HTTPError:
+        elapsed = time.time() - start_time
+        print("Downloaded " + str(message_count) + " messages and " +
+                str(image_count) + " images in "
+                + str(elapsed) + " seconds")
 
 
 # Takes a json message object, prints it.
 def print_message(message):
+    global message_count
+    global image_count
+
     date = str(datetime.datetime.fromtimestamp(int(message["created_at"])))
     if(message["text"] is None):
         # probably was an attachment, ie picture
@@ -53,13 +66,19 @@ def print_message(message):
                 + message["attachments"][0]["url"])
     else:
         output_file.write("\n" + date + " - " + message["name"] + ":\n" + message["text"])
+        message_count += 1
 
     # Save any attached pictures
     if(message["attachments"] is not None):
         for attachment in message["attachments"]:
             if(attachment["type"] == "image"):
                 url = attachment["url"]
-                response = urllib.request.urlopen(url)
+                # Sometimes an image isn't avaliable for some reason
+                try:
+                    response = urllib.request.urlopen(url)
+                    image_count += 1
+                except urllib.error.HTTPError:
+                    print("ERROR: image at " + url + " could not be retrieved")
                 # we shouldn't just *assume* it's a .png, but oh well
                 f = open(output_file_name + "-pictures/" + date + ".png", "wb")
                 f.write(response.read())
