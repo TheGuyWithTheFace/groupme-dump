@@ -79,6 +79,7 @@ def print_message(message):
                     image_count += 1
                 except urllib.error.HTTPError:
                     print("ERROR: image at " + url + " could not be retrieved")
+                    break
                 # we shouldn't just *assume* it's a .png, but oh well
                 f = open(output_file_name + "-pictures/" + date + ".png", "wb")
                 f.write(response.read())
@@ -104,7 +105,7 @@ def get_starting_messages(user_token, group_id):
 # lists user's groups, asks for user to select a specific group, returns it.
 def select_group(user_token):
     # Get list of groups
-    groups = make_request(GROUPME_API, "/groups", user_token, {})
+    groups = make_request(GROUPME_API, "/groups", user_token, {'per_page' : '100'})
     names = [group["name"] for group in groups]
 
     # print groups for user to select
@@ -112,6 +113,10 @@ def select_group(user_token):
         print("[" + str(i) + "] " + names[i])
     selected_index = int(
 		input("Please enter the number of your selected group: "))
+
+    # absolutely useless to the user and probably confusing to boot,
+    #but it's useful to me. fuck the users.
+    print("GroupId: " + groups[selected_index]["id"])
 
     # return selected group
     return groups[selected_index]
