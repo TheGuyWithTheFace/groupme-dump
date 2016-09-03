@@ -14,12 +14,24 @@ message_count = 0
 def main():
     global output_file
     global output_file_name
+    global dump_type
 
     user_token = input("Please enter your GroupMe API Token: ")
 
-    # Select group
-    group = select_group(user_token)
-    group_id = group["group_id"]
+    # Choose whether dumping direct messages or group chats.
+    dump_type = input("Enter \"dm\" to dump a direct message log or \"group\" to dump a group chat: ")
+    
+    # if something other than "dm" or "group" is typed, asks again
+    while(dump_type != "dm") and (dump_type != "group"):
+        dump_type = input("Invalid entry. Please choose \"dm\" or \"group\".: ")
+    if(dump_type == "dm"):
+        # Select which dm to dump
+        group = select_dm(user_token)
+        group_id = str(group["other_user"]["id"])
+    elif(dump_type == "group"):
+        # Select group
+        group = select_group(user_token)
+        group_id = group["group_id"]
 
     output_file_name = input("Please enter an unused name for the output file: ")
 
@@ -29,12 +41,13 @@ def main():
 
     # setup output folder and file
     os.makedirs(output_file_name + "-pictures") # where we'll put attachments
-    output_file = open(output_file_name + ".txt", "w")
+    # specified what encoding to use so Windows users can use it
+    output_file = open(output_file_name + ".txt", "w", -1, "utf-8")
 
     print("dumping...")
     start_time = time.time()
 
-    # Get first 100 messages, print them, save id of the oldest message
+    # Get first set of messages, print them, save id of the oldest message
     messages = get_starting_messages(user_token, group_id)
     for message in messages:
         print_message(message)
@@ -86,20 +99,36 @@ def print_message(message):
                 f.close()
 
 
-# Returns the 100 messages in a chat that come before the given id.
+# Returns the 100 messages in a chat that come before the given id if dumping group
+# Returns only 20 messages if dumping DMs
 def get_messages_before(user_token, group_id, before_id):
-    response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
+    if (dump_type == "group"):
+        response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
             user_token, {'limit':'100', 'before_id':before_id})
+    
+        return response["messages"]
+    
+    else:
+        response = make_request(GROUPME_API, "/direct_messages",
+            user_token, {'other_user_id':group_id, 'before_id':before_id})
 
-    return response["messages"]
+        return response["direct_messages"]
 
 
-# Returns the first 100 messages in a chat
+# Returns the first 100 messages in a chat if group
+# Returns first 20 for DMs
 def get_starting_messages(user_token, group_id):
-    response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
+    if (dump_type == "group"):
+        response = make_request(GROUPME_API, "/groups/" + group_id + "/messages",
             user_token, {'limit':'100'})
 
-    return response["messages"]
+        return response["messages"]
+
+    else:
+        response = make_request(GROUPME_API, "/direct_messages",
+            user_token, {'other_user_id':group_id})
+
+        return response["direct_messages"]
 
 
 # lists user's groups, asks for user to select a specific group, returns it.
@@ -112,7 +141,7 @@ def select_group(user_token):
     for i in range(len(names)):
         print("[" + str(i) + "] " + names[i])
     selected_index = int(
-		input("Please enter the number of your selected group: "))
+        input("Please enter the number of your selected group: "))
 
     # absolutely useless to the user and probably confusing to boot,
     #but it's useful to me. fuck the users.
@@ -121,6 +150,20 @@ def select_group(user_token):
     # return selected group
     return groups[selected_index]
 
+# lists user's chats, asks for user to select a specific person, returns it.
+def select_dm(user_token):
+    # Get list of DMs
+    groups = make_request(GROUPME_API, "/chats", user_token, {'per_page' : '20'})
+    names = [group["other_user"]["name"] for group in groups]
+
+    # print names for user to select
+    for i in range(len(names)):
+        print("[" + str(i) + "] " + str(names[i]))
+    selected_index = int(
+        input("Please enter the number of the person whose DMs you'd like to copy: "))
+
+    # return selected person's DMs
+    return groups[selected_index]
 
 # fetches resource at URL, converts JSON response to useful Object
 def make_request(base_url, additional_url, token, params):
