@@ -21,7 +21,8 @@ def main():
     user_token = input("Please enter your GroupMe API Token: ")
 
     # Choose whether dumping direct messages or group chats.
-    dump_type = input("Enter \"dm\" to dump a direct message log or \"group\" to dump a group chat: ")
+    dump_type = input("Enter \"dm\" to dump a direct message log or \"group\""
+                      " to dump a group chat: ")
 
     # if something other than "dm" or "group" is typed, asks again
     while (dump_type != "dm") and (dump_type != "group"):
@@ -46,29 +47,27 @@ def main():
     should_download_images = input("Download images, too? [Y/n] ")
     should_download_images = should_download_images.lower() != 'n'
 
-    print(should_download_images)
-
     # setup output folder and file
     if should_download_images:
         os.makedirs(output_file_name + "-pictures") # where we'll put attachments
     output_file = open(output_file_name + ".txt", "w", -1, "utf-8")
 
-    print("dumping...")
+    print("Downloading...")
     start_time = time.time()
 
     # Get first set of messages, print them, save id of the oldest message
+    all_messages = []
     messages = get_starting_messages(user_token, group_id)
-    for message in messages:
-        print_message(message)
+    all_messages += messages
     before_id = messages[len(messages) - 1]["id"]
 
     try:
         # Loop through history, printing messages.
         while(True):
             messages = get_messages_before(user_token, group_id, before_id)
-            for message in messages:
-                print_message(message)
-            if len(messages) == 0: break
+            all_messages += messages
+            if len(messages) == 0:
+                break
             before_id = messages[len(messages) - 1]["id"]
     except urllib.error.HTTPError:
         pass
@@ -76,6 +75,11 @@ def main():
     print("Downloaded " + str(message_count) + " messages and " +
             str(image_count) + " images in "
             + str(elapsed) + " seconds")
+
+    print("Writing to file...")
+    for message in reversed(all_messages):
+        print_message(message)
+    print("Done!")
 
 
 # Takes a json message object, prints it.
@@ -174,7 +178,7 @@ def select_dm(user_token):
     for i in range(len(names)):
         print("[" + str(i) + "] " + str(names[i]))
     selected_index = int(
-        input("Please enter the number of the person whose DMs you'd like to"
+        input("Please enter the number of the person whose DMs you'd like to "
               "copy: "))
 
     return groups[selected_index]
