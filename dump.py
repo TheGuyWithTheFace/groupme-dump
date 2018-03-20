@@ -10,11 +10,13 @@ output_file_name = ""
 output_file = 0 # just declaring here so it can be used later
 image_count = 0
 message_count = 0
+should_download_images = False
 
 def main():
     global output_file
     global output_file_name
     global dump_type
+    global should_download_images
 
     user_token = input("Please enter your GroupMe API Token: ")
 
@@ -41,9 +43,14 @@ def main():
     if output_file_name.endswith(".txt"):
         output_file_name = output_file_name[:-4]
 
+    should_download_images = input("Download images, too? [Y/n] ")
+    should_download_images = should_download_images.lower() != 'n'
+
+    print(should_download_images)
+
     # setup output folder and file
-    os.makedirs(output_file_name + "-pictures") # where we'll put attachments
-    # specified what encoding to use so Windows users can use it
+    if should_download_images:
+        os.makedirs(output_file_name + "-pictures") # where we'll put attachments
     output_file = open(output_file_name + ".txt", "w", -1, "utf-8")
 
     print("dumping...")
@@ -61,13 +68,14 @@ def main():
             messages = get_messages_before(user_token, group_id, before_id)
             for message in messages:
                 print_message(message)
-            if len(messages) == 0: continue
+            if len(messages) == 0: break
             before_id = messages[len(messages) - 1]["id"]
     except urllib.error.HTTPError:
-        elapsed = time.time() - start_time
-        print("Downloaded " + str(message_count) + " messages and " +
-                str(image_count) + " images in "
-                + str(elapsed) + " seconds")
+        pass
+    elapsed = time.time() - start_time
+    print("Downloaded " + str(message_count) + " messages and " +
+            str(image_count) + " images in "
+            + str(elapsed) + " seconds")
 
 
 # Takes a json message object, prints it.
@@ -84,8 +92,8 @@ def print_message(message):
         output_file.write("\n" + date + " - " + message["name"] + ":\n" + message["text"])
         message_count += 1
 
-    # Save any attached pictures
-    if(message["attachments"] is not None):
+    # Save any attached pictures, if requested
+    if should_download_images and (message["attachments"] is not None):
         for attachment in message["attachments"]:
             if(attachment["type"] == "image"):
                 url = attachment["url"]
